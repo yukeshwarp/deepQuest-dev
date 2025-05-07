@@ -1,9 +1,13 @@
 import requests
 import os
+import urllib, urllib.request
+from newsapi import NewsApiClient
+from dotenv import load_dotenv
+load_dotenv()
 
-BING_SEARCH_ENDPOINT = "https://api.bing.microsoft.com/v7.0/search"
-BING_API_KEY = "afc632c209584311956e12239969f498"
-
+BING_SEARCH_ENDPOINT = os.getenv("BING_SEARCH_ENDPOINT")
+BING_API_KEY = os.getenv("BING_API_KEY")
+newsapi_key = os.getenv("NEWSAPI_KEY")
 
 def search_bing(query):
     try:
@@ -38,15 +42,47 @@ def search_bing(query):
         if not total_results:
             return "Sorry, I couldn't find any relevant search results."
 
-        # Return the top 100 search result titles and URLs
+        # Format Bing search results
         formatted_results = [
             f"{i+1}. {item['name']} - {item['url']} - {item['snippet']}"
             for i, item in enumerate(total_results[:total_to_fetch])
         ]
+
+        # Fetch results from ArXiv API
+        url = f'http://export.arxiv.org/api/query?query=all:{query}&start=0&max_results=3'
+        data = urllib.request.urlopen(url)
+        formatted_results.append(f"Arxiv API response: {data.read().decode('utf-8')}")
+
+        # Fetch results from News API
+        newsapi = NewsApiClient(api_key=newsapi_key)
+        all_articles = newsapi.get_everything(q=query,
+                                              language='en',
+                                              sort_by='relevancy',
+                                              page_size=5)
+
+        result = ""
+        for i in range(0, 5):
+            result += f"Source: {all_articles['articles'][i]['source']['name']}\n"
+            result += f"Title: {all_articles['articles'][i]['title']}\n"
+            result += f"Description: {all_articles['articles'][i]['description']}\n"
+            result += f"URL: {all_articles['articles'][i]['url']}\n\n"
+
+        formatted_results.append(f"News API response: {result}")
+
+        # Fetch results from SEC API
+        sec_api_url = f"https://data.sec.gov/api/xbrl/companyfacts/{query}.json"
+        sec_headers = {
+            "User-Agent": "YourAppName (your_email@example.com)"
+        }
+        sec_response = requests.get(sec_api_url, headers=sec_headers)
+        if sec_response.status_code == 200:
+            sec_data = sec_response.json()
+            formatted_results.append(f"SEC API response: {sec_data}")
+        else:
+            formatted_results.append(f"SEC API response: Error {sec_response.status_code}")
+
         return "\n\n".join(formatted_results)
 
     except Exception as e:
         print(e)
         return f"Error: {str(e)}"
-    
-# print(search_bing("Python programming"))

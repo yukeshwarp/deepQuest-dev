@@ -71,20 +71,45 @@ def plan_step(state: PlanExecute):
     steps = [step.strip() for step in plan_text.split("\n") if step.strip()]
     return {"plan": steps}
 
-def execute_step(state: PlanExecute):
-    plan = state["plan"]
-    task = plan[0]
+def research_task(task: str, plan: List[str]) -> str:
+    """Perform the research for the given task."""
     plan_str = "\n".join(f"{i + 1}. {step}" for i, step in enumerate(plan))
-    task_prompt = f"For the following plan:\n{plan_str}\n\nYou are tasked with executing step: {task}"
+    research_prompt = f"For the following plan:\n{plan_str}\n\nResearch the following step: {task}"
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
-            {"role": "system", "content": "You are a helpful research assistant writing a report section based on ongoing synthesis."},
-            {"role": "user", "content": task_prompt}
+            {"role": "system", "content": "You are a helpful research assistant gathering information for a task."},
+            {"role": "user", "content": research_prompt}
         ]
     )
-    result = response.choices[0].message.content
-    return {"past_steps": [(task, result)]}
+    research_result = response.choices[0].message.content
+    return research_result
+
+def write_task(task: str, research_result: str) -> str:
+    """Generate the final output for the task based on the research."""
+    write_prompt = f"Based on the following research:\n{research_result}\n\nWrite a detailed and well-structured response for the task: {task}"
+    response = client.chat.completions.create(
+        model="gpt-4.1",
+        messages=[
+            {"role": "system", "content": "You are a helpful research assistant writing a detailed response based on research."},
+            {"role": "user", "content": write_prompt}
+        ]
+    )
+    write_result = response.choices[0].message.content
+    return write_result
+
+def execute_step(state: PlanExecute):
+    """Execute a single step by performing research and writing."""
+    plan = state["plan"]
+    task = plan[0]
+
+    # Perform research
+    research_result = research_task(task, plan)
+
+    # Generate the final output
+    write_result = write_task(task, research_result)
+
+    return {"past_steps": [(task, write_result)]}
 
 
 # Replan step
