@@ -5,3 +5,5 @@ langgraph
 redis
 scipy
 pydantic
+newsapi
+python-docx
