@@ -1,11 +1,15 @@
 from langgraph.graph import StateGraph, START, END
 import streamlit as st
 from dotenv import load_dotenv
-from core import *
+from core import plan_step, execute_step, replan_step, should_end
+import streamlit as st
+from docx import Document
+from io import BytesIO
 from cache import create_redis_index, knn_search, generate_embedding
 load_dotenv()
 
 st.title("Agentic Research Assistant")
+st.header("Research Report", divider="orange")
 
 if "plan" not in st.session_state:
     st.session_state["plan"] = []
@@ -16,22 +20,21 @@ if "past_steps" not in st.session_state:
 if "current_step_index" not in st.session_state:
     st.session_state["current_step_index"] = 0
 
-with st.sidebar:
-    st.header("📋 Current Research Plan")
-    if st.session_state["plan"]:
-        for idx, step in enumerate(st.session_state["plan"], 1):
-            st.markdown(f"**Step {idx}:** {step}")
-    else:
-        st.write("Plan will appear here after planning.")
-
-    st.subheader("✅ Executed Steps")
-    if st.session_state["past_steps"]:
-        for idx, (task, result) in enumerate(st.session_state["past_steps"], 1):
-            st.markdown(f"**Step {idx}:** {task}\n\n_Result:_ {result}")
-    else:
-        st.write("No steps executed yet.")
+if "response" not in st.session_state:
+    st.session_state["response"] = ""
+if "topic" not in st.session_state:
+    st.session_state["topic"] = ""
 
 create_redis_index()
+
+def generate_docx(content: str) -> BytesIO:
+    doc = Document()
+    doc.add_paragraph(content)
+
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
 
 # Modified wrapper functions to properly update session state
 def wrapped_plan_step(state: dict) -> dict:
@@ -141,21 +144,59 @@ def run_sync_app(Topic: str):
             state.update(result)
             current_node = should_end(state)
 
-    st.write("\n✅ Final Output:\n")
-    st.write(state["response"])
+    # st.write("\n✅ Final Output:\n")
+    st.session_state["response"] = state["response"]
+    # st.write(state["response"])
     # Perform KNN search for the final topic
     query_embedding = generate_embedding(Topic)
     similar_items = knn_search(query_embedding)
-    st.subheader("🔍 Similar Topics Found:")
-    for item_key, score in similar_items:
-        st.markdown(f"- **Key:** {item_key}, **Similarity Score:** {score:.4f}")
+    # st.subheader("🔍 Similar Topics Found:")
+    # for item_key, score in similar_items:
+    #     st.markdown(f"- **Key:** {item_key}, **Similarity Score:** {score:.4f}")
 
-if __name__ == "__main__":
-    Topic = st.text_area("Research Topic")
+st.write(st.session_state["response"])
+
+def understand_intent(topic):
+    return client.chat.completions.create(
+        model="gpt-4.1",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": f"Understand the intent behind the following research topic:\n\n{topic}\n\nRespond only with a short paragraph."}
+        ]
+    ).choices[0].message.content
+
+with st.sidebar:
+    
+    st.session_state["topic"] = understand_intent(st.text_input("Research Topic"))
+    # st.header("📋 Current Research Plan")
+    # if st.session_state["plan"]:
+    #     for idx, step in enumerate(st.session_state["plan"], 1):
+    #         st.markdown(f"**Step {idx}:** {step}")
+    # else:
+    #     st.write("Plan will appear here after planning.")
     if st.button("Run Research"):
-        if Topic.strip():  # Only run if there's valid input
-            run_sync_app(Topic)
+        if st.session_state["topic"].strip():  # Only run if there's valid input
+            run_sync_app(st.session_state["topic"])
+            
+            st.rerun()
             # st.rerun()  # Rerun to refresh the app state
             
         else:
             st.warning("Please enter a research topic.")
+
+    st.subheader("✅ Executed Steps")
+    if st.session_state["past_steps"]:
+        for idx, (task, result) in enumerate(st.session_state["past_steps"], 1):
+            st.markdown(f"**Step {idx}:** {task}\n\n")
+    else:
+        st.write("No steps executed yet.")
+
+    docx_file = generate_docx(st.session_state["response"])
+
+    # Streamlit download button for .docx
+    st.download_button(
+        label="Download Report",
+        data=docx_file,
+        file_name=f"{st.session_state['topic']}_report.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )

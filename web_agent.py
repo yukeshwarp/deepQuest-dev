@@ -81,6 +81,26 @@ def search_bing(query):
         else:
             formatted_results.append(f"SEC API response: Error {sec_response.status_code}")
 
+        # Fetch results from Wikipedia API
+        wikipedia_api_url = "https://en.wikipedia.org/w/api.php"
+        wikipedia_params = {
+            "action": "query",
+            "prop": "extracts",
+            "titles": query,
+            "format": "json",
+            "exintro": True,
+            "explaintext": True
+        }
+        wikipedia_response = requests.get(wikipedia_api_url, params=wikipedia_params)
+        if wikipedia_response.status_code == 200:
+            wikipedia_data = wikipedia_response.json()
+            pages = wikipedia_data.get("query", {}).get("pages", {})
+            for page_id, page_info in pages.items():
+                if "extract" in page_info:
+                    formatted_results.append(f"Wikipedia API response: {page_info['extract']}")
+        else:
+            formatted_results.append(f"Wikipedia API response: Error {wikipedia_response.status_code}")
+
         return "\n\n".join(formatted_results)
 
     except Exception as e:
