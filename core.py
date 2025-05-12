@@ -1,6 +1,6 @@
 from openai import AzureOpenAI
 import os
-from web_agent import search_bing  # Assuming you have a proper search function
+from web_agent import search_google  # Assuming you have a proper search function
 from langgraph.graph import END
 from pydantic import BaseModel
 from typing import List, Tuple, Union
@@ -49,11 +49,30 @@ class Response(BaseModel):
 class Act(BaseModel):
     action: Union[Response, Plan]
 
+def rewrite_query(original_query: str) -> str:
+    """Rewrite the search query for better results from the Google Search API."""
+    rewrite_prompt = f"""
+    You are an expert in optimizing search engine queries. Rewrite the following query to make it more specific, clear, and likely to yield relevant results:
+    
+    Original Query: "{original_query}"
+    
+    Provide a rewritten query that improves the search results to get accurately expected results on internet.
+    Return only the rewritten query without any additional text.
+    """
+    response = client.chat.completions.create(
+        model="gpt-4.1",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant specializing in search engine optimization."},
+            {"role": "user", "content": rewrite_prompt}
+        ]
+    )
+    rewritten_query = response.choices[0].message.content.strip()
+    return rewritten_query
 
 # Prompts
-planner_prompt = """You are a finance research agent working in Oct 2024. For the given objective, come up with a simple step-by-step plan. 
-This plan should involve individual tasks that, if executed correctly, will yield the correct answer. 
-Do not add any superfluous steps. Make sure that each step has all the information needed."""
+planner_prompt = """You are a research agent. For the given objective, come up with a simple step-by-step plan.  
+This plan should involve individual tasks that, if executed correctly, will yield the correct answer.  
+Do not add any unnecessary steps. Make sure that each step has all the information needed."""
 
 # Planning step
 def plan_step(state: PlanExecute):
@@ -62,7 +81,7 @@ def plan_step(state: PlanExecute):
         model="o3-mini",
         messages=[
             {"role": "system", "content": "You are a helpful research assistant writing a report section based on ongoing synthesis."},
-            {"role": "user", "content": f"{planner_prompt}\n\nObjective: {query}\n\nWeb search results: {search_bing(query)}\n\nInclude attributions to the sources you used in your plan with links to them."}
+            {"role": "user", "content": f"{planner_prompt}\n\nObjective: {query}\n\nWeb search results: {search_google(rewrite_query(query))}\n\nInclude attributions to the sources you used in your plan with links to them."}
         ]
     )
     plan_text = response.choices[0].message.content
@@ -85,7 +104,7 @@ def research_task(task: str, plan: List[str]) -> str:
 
 def write_task(task: str, research_result: str) -> str:
     """Generate the final output for the task based on the research."""
-    write_prompt = f"Based on the following research:\n{research_result}\n\nWrite a detailed and well-structured response for the task: {task}"
+    write_prompt = f"Based on the following research:\n{research_result}\n\nWrite a detailed and well-structured response for the task: {task}\n You should write it as a research section"
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
@@ -119,7 +138,7 @@ def replan_step(state: PlanExecute):
             model="gpt-4.1",
             messages=[
                 {"role": "system", "content": "You are a helpful research assistant writing a report section based on ongoing synthesis."},
-                {"role": "user", "content": f"Given the steps already taken:\n{state['past_steps']}\nGenerate the deep and detailed final research report.\n\nMake sure to include all the information from the previous steps.\n\nInclude attributions to the sources you used in your plan with links to them."}
+                {"role": "user", "content": f"Given the steps already taken:\n{state['past_steps']}\nGenerate the deep and detailed final research report.\n\nMake sure to include all the information.\n\nInclude attributions to all the sources you used with links to them."}
             ]
         )
         return {"response": response.choices[0].message.content}
