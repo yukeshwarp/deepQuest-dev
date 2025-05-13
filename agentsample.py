@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from core import plan_step, execute_step, replan_step, should_end, PlanExecute
 import streamlit as st
 from docx import Document
+from config import client
 from io import BytesIO
 from cache import create_redis_index, knn_search, generate_embedding
 load_dotenv()
@@ -167,7 +168,7 @@ def understand_intent(topic):
 
 with st.sidebar:
     
-    st.session_state["topic"] = understand_intent(st.text_input("Research Topic"))
+    st.session_state["topic"] = understand_intent(st.text_area("Research Topic"))
     # st.header("📋 Current Research Plan")
     # if st.session_state["plan"]:
     #     for idx, step in enumerate(st.session_state["plan"], 1):
@@ -176,6 +177,7 @@ with st.sidebar:
     #     st.write("Plan will appear here after planning.")
     if st.button("Run Research"):
         if st.session_state["topic"].strip():  # Only run if there's valid input
+            print("topic:", st.session_state["topic"])
             run_sync_app(st.session_state["topic"])
             
             st.rerun()

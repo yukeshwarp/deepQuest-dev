@@ -51,6 +51,7 @@ class Act(BaseModel):
 
 def rewrite_query(original_query: str) -> str:
     """Rewrite the search query for better results from the Google Search API."""
+    print(f"Original query: {original_query}")
     rewrite_prompt = f"""
     You are an expert in optimizing search engine queries. Rewrite the following query to make it more specific, clear, and likely to yield relevant results:
     

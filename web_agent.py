@@ -69,14 +69,14 @@ async def crawl_with_async_webcrawler(urls):
 def search_google(query):
     try:
         formatted_results = []
-
+        print("Query:", query)
         # --- Google Custom Search ---
         google_search_url = "https://www.googleapis.com/customsearch/v1"
         google_params = {
             "key": GOOGLE_API_KEY,
             "cx": SEARCH_ENGINE_ID,
             "q": query,
-            "num": 36,
+            "num": 10,
         }
         response = requests.get(google_search_url, params=google_params)
         if response.status_code == 200:
@@ -91,6 +91,8 @@ def search_google(query):
             # --- Crawl the top 3 websites (asynchronously) using AsyncWebCrawler ---
             crawled_data = asyncio.run(crawl_with_async_webcrawler(google_urls[:3]))
             formatted_results.extend(crawled_data)
+
+            print("Crawled URLs:", google_urls[:3])
 
         else:
             formatted_results.append(f"Google Search Error: {response.status_code}")
