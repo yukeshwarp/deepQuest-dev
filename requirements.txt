@@ -7,3 +7,6 @@ scipy
 pydantic
 newsapi-python
 python-docx
+asyncio
+crawl4ai
+beautifulsoup4
