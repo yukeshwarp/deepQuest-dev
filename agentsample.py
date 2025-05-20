@@ -6,7 +6,7 @@ import streamlit as st
 from docx import Document
 from config import client
 from io import BytesIO
-from cache import create_redis_index, knn_search, generate_embedding
+# from cache import create_redis_index, knn_search, generate_embedding
 load_dotenv()
 
 st.title("Agentic Research Assistant")
@@ -26,7 +26,7 @@ if "response" not in st.session_state:
 if "topic" not in st.session_state:
     st.session_state["topic"] = ""
 
-create_redis_index()
+# create_redis_index()
 
 def generate_docx(content: str) -> BytesIO:
     doc = Document()
@@ -149,8 +149,8 @@ def run_sync_app(Topic: str):
     st.session_state["response"] = state["response"]
     # st.write(state["response"])
     # Perform KNN search for the final topic
-    query_embedding = generate_embedding(Topic)
-    similar_items = knn_search(query_embedding)
+    # query_embedding = generate_embedding(Topic)
+    # similar_items = knn_search(query_embedding)
     # st.subheader("🔍 Similar Topics Found:")
     # for item_key, score in similar_items:
     #     st.markdown(f"- **Key:** {item_key}, **Similarity Score:** {score:.4f}")

@@ -78,11 +78,13 @@ Do not add any unnecessary steps. Make sure that each step has all the informati
 # Planning step
 def plan_step(state: PlanExecute):
     query = state["input"]
+    web_cont = search_google(query)
+    print(web_cont)
     response = client.chat.completions.create(
         model="o3-mini",
         messages=[
             {"role": "system", "content": "You are a helpful research assistant writing a report section based on ongoing synthesis."},
-            {"role": "user", "content": f"{planner_prompt}\n\nObjective: {query}\n\nWeb search results: {search_google(rewrite_query(query))}\n\nInclude attributions to the sources you used in your plan with links to them."}
+            {"role": "user", "content": f"{planner_prompt}\n\nObjective: {query}\n\nWeb search results: {web_cont}\n\nInclude attributions to the sources you used in your plan with links to them."}
         ]
     )
     plan_text = response.choices[0].message.content
