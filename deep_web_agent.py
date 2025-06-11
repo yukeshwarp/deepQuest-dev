@@ -304,13 +304,34 @@ def search_google(query):
     try:
         formatted_results, google_urls = google_search(query)
         crawled_data = []
-        # Only crawl Google results
+        # Only crawl Google results using deep webcrawler with depth=2
         if google_urls:
             try:
-                crawled_data = asyncio.run(crawl_with_async_webcrawler(google_urls[:3]))
-                logging.info(f"Crawled URLs: {google_urls[:3]}")
+                async def deep_crawl(urls):
+                    async with AsyncWebCrawler(depth=2) as crawler:
+                        results = []
+                        for url in urls[:3]:
+                            try:
+                                result = await asyncio.wait_for(
+                                    async_retry_on_exception(
+                                        crawler.arun, url=url, max_retries=2, backoff=2
+                                    ),
+                                    timeout=20,
+                                )
+                                results.append(
+                                    f"[Crawled Website (Markdown)] URL: {url}\n{result.markdown}\n"
+                                )
+                            except asyncio.TimeoutError:
+                                logging.error(f"Timeout crawling {url} with AsyncWebCrawler")
+                                results.append(f"[Crawling Error] URL: {url} Error: Timeout")
+                            except Exception as e:
+                                logging.error(f"Error crawling {url} with AsyncWebCrawler: {e}")
+                                results.append(f"[Crawling Error] URL: {url} Error: {str(e)}")
+                        return results
+                crawled_data = asyncio.run(deep_crawl(google_urls))
+                logging.info(f"Deep crawled URLs: {google_urls[:3]}")
             except Exception as e:
-                logging.error(f"Error running async crawler: {e}")
+                logging.error(f"Error running deep async crawler: {e}")
                 crawled_data.append(f"Async Crawler Error: {str(e)}")
         arxiv_results = arxiv_search(query)
         newsapi_results = newsapi_search(query)
