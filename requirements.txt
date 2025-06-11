@@ -1,9 +1,12 @@
 openai
 streamlit
 python-dotenv
-langgraph
 redis
 scipy
 pydantic
 newsapi-python
 python-docx
+asyncio
+crawl4ai
+beautifulsoup4
+Markdown
