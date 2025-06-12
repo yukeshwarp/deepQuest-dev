@@ -1,5 +1,5 @@
 import streamlit as st
-from web_agent import *
+from deep_web_agent import *
 from dotenv import load_dotenv
 from config import client
 
