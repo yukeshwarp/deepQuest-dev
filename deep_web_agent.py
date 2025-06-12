@@ -9,7 +9,9 @@ from bs4 import BeautifulSoup
 import aiohttp
 import asyncio
 import logging
-from crawl4ai import AsyncWebCrawler
+from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
+from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
+from crawl4ai.content_scraping_strategy import LXMLWebScrapingStrategy
 import time
 
 # Setup logging
@@ -299,36 +301,40 @@ def wikipedia_extract(query):
         logging.error(f"Wikipedia Error: {e}")
         return [f"Wikipedia Error: {str(e)}"]
 
+def deep_crawl_google_results(urls, max_depth=2, max_results=3):
+    async def deep_crawl(urls):
+        config = CrawlerRunConfig(
+            deep_crawl_strategy=BFSDeepCrawlStrategy(
+                max_depth=max_depth,
+                include_external=False
+            ),
+            scraping_strategy=LXMLWebScrapingStrategy(),
+            verbose=True
+        )
+        async with AsyncWebCrawler() as crawler:
+            all_results = []
+            for url in urls[:max_results]:
+                try:
+                    results = await crawler.arun(url, config=config)
+                    all_results.extend(results)
+                except Exception as e:
+                    logging.error(f"Deep crawl error for {url}: {e}")
+            return all_results
+    return asyncio.run(deep_crawl(urls))
 
 def search_google(query):
     try:
         formatted_results, google_urls = google_search(query)
         crawled_data = []
-        # Only crawl Google results using deep webcrawler with depth=2
+        # Deep crawl Google results using BFS strategy with depth=2
         if google_urls:
             try:
-                async def deep_crawl(urls):
-                    async with AsyncWebCrawler(depth=2) as crawler:
-                        results = []
-                        for url in urls[:3]:
-                            try:
-                                result = await asyncio.wait_for(
-                                    async_retry_on_exception(
-                                        crawler.arun, url=url, max_retries=2, backoff=2
-                                    ),
-                                    timeout=20,
-                                )
-                                results.append(
-                                    f"[Crawled Website (Markdown)] URL: {url}\n{result.markdown}\n"
-                                )
-                            except asyncio.TimeoutError:
-                                logging.error(f"Timeout crawling {url} with AsyncWebCrawler")
-                                results.append(f"[Crawling Error] URL: {url} Error: Timeout")
-                            except Exception as e:
-                                logging.error(f"Error crawling {url} with AsyncWebCrawler: {e}")
-                                results.append(f"[Crawling Error] URL: {url} Error: {str(e)}")
-                        return results
-                crawled_data = asyncio.run(deep_crawl(google_urls))
+                crawl_results = deep_crawl_google_results(google_urls, max_depth=2, max_results=3)
+                for result in crawl_results:
+                    url = getattr(result, 'url', None)
+                    depth = result.metadata.get('depth', 0) if hasattr(result, 'metadata') else 0
+                    markdown = getattr(result, 'markdown', None)
+                    crawled_data.append(f"[Deep Crawled] URL: {url}\nDepth: {depth}\n{markdown if markdown else ''}")
                 logging.info(f"Deep crawled URLs: {google_urls[:3]}")
             except Exception as e:
                 logging.error(f"Error running deep async crawler: {e}")
