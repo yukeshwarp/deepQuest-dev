@@ -10,7 +10,7 @@ import aiohttp
 import asyncio
 import logging
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
-from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
+from crawl4ai.deep_crawling import DFSDeepCrawlStrategy
 from crawl4ai.content_scraping_strategy import LXMLWebScrapingStrategy
 import time
 
@@ -304,7 +304,7 @@ def wikipedia_extract(query):
 def deep_crawl_google_results(urls, max_depth=2, max_results=3):
     async def deep_crawl(urls):
         config = CrawlerRunConfig(
-            deep_crawl_strategy=BFSDeepCrawlStrategy(
+            deep_crawl_strategy=DFSDeepCrawlStrategy(
                 max_depth=max_depth,
                 include_external=False
             ),
